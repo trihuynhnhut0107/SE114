@@ -123,7 +123,7 @@ class FirebaseGroupManager @Inject constructor(
         onFailureListener: () -> Unit
     ) {
         try {
-            retrieveMemberList(groupId = groupId, {})
+            retrieveMemberList(groupId = groupId) {}
             membersInGroup.value.forEach {
                 member ->
                 member.userId?.let {
