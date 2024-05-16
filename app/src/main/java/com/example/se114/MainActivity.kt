@@ -1,5 +1,6 @@
 package com.example.se114
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -59,14 +60,24 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import coil.annotation.ExperimentalCoilApi
 import coil.compose.rememberImagePainter
 import com.example.se114.ui.theme.SE114Theme
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        //val viewModel: ChatViewModel = ViewModelProvider(this).get(ChatViewModel::class.java)
+        //val messages = MessageRepository.getMessages()
+
         setContent {
             SE114Theme {
                 // A surface container using the 'background' color from the theme
@@ -74,7 +85,9 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    ChatScreen()
+                    val messages = MessageRepository.getMessages()
+                    val viewModel: ChatViewModel = remember { ChatViewModel(messages) }
+                    ChatScreen(viewModel = viewModel)
                 }
             }
         }
@@ -97,38 +110,71 @@ fun GreetingPreview() {
     }
 }
 
-data class ChatMessage(
-    val sender: String,
-    val message: String
-)
-
-@Composable
-fun ChatScreen() {
-    val currentUser = "Trần Trung Thông"
-    val messages = remember {
-        listOf(
-            ChatMessage("Trần Trung Thông", "Xin chào bạn nhá!"),
-            ChatMessage("Alice", "Xin chào"),
-            ChatMessage("Trần Trung Thông", "Ngày mai đi học môn java không"),
-            ChatMessage("Trần Trung Thông", "Chở mình đi học giúp với"),
-            ChatMessage("Alice", "Ok để tui chở cho"),
-            ChatMessage("Trần Trung Thông", "Phải vậy chứ"),
-            ChatMessage("Alice", "Haha không có gì"),
-            ChatMessage("Alice", "Nhớ dậy sớm"),
-            ChatMessage("Trần Trung Thông", "Ok. Có gì gọi nha, do có thể dậy trễ á"),
-            ChatMessage("Alice", "okok"),
+object MessageRepository {
+    fun getMessages(): List<ChatMessage> {
+        // Truy vấn cơ sở dữ liệu để lấy danh sách tin nhắn
+        // Sử dụng tạm thời để hiển th
+        return listOf(
+            ChatMessage("Alice", "Xin chào", System.currentTimeMillis()),
+            ChatMessage("Bob", "Dậy sớm thế!", System.currentTimeMillis()),
+            ChatMessage("Bob", "Có gì không", System.currentTimeMillis()),
+            ChatMessage("Charlie", "Chào mọi người", System.currentTimeMillis()),
+            ChatMessage("Trần Trung Thông", "Mai đi học không mọi người", System.currentTimeMillis())
         )
     }
+}
+
+data class ChatMessage(
+    val sender: String,
+    val message: String,
+    val timestamp: Long
+)
+
+class ChatViewModel(messages: List<ChatMessage>) : ViewModel() {
+    private val _messages = MutableLiveData(messages)
+    val messages: LiveData<List<ChatMessage>> = _messages
+
+    fun sendMessage(message: String, currentUser: String) {
+        val newMessage = ChatMessage(currentUser, message, System.currentTimeMillis())
+        val currentMessages = _messages.value ?: emptyList()
+        _messages.value = currentMessages + newMessage
+    }
+}
+
+@Composable
+fun ChatScreen(viewModel: ChatViewModel) {
+    val currentChannel = "Tên nhóm" //Tên nhóm
+    val currentUser = "Trần Trung Thông" //Tên chính chủ
+    val sender = "Nguyễn Hữu Trường" //Tên người gửi nếu 1v1
+    val fixedTime = parseTimeStringToTimestamp("20:38")
+    val isGroupChat = true // true: nhóm, false: 1v1
+    //val messages by viewModel.messages.observeAsState(initial = emptyList())
+
+//    val messages = remember {
+//        listOf(
+//            ChatMessage("Trần Trung Thông", "Xin chào bạn nhá!", fixedTime),
+//            ChatMessage("Alice", "Xin chào", fixedTime + 1000),
+//            ChatMessage("Trần Trung Thông", "Ngày mai đi học môn java không", fixedTime+100000),
+//            ChatMessage("Trần Trung Thông", "Chở mình đi học giúp với", fixedTime+300000),
+//            ChatMessage("Alice", "Ok để tui chở cho", fixedTime+400000),
+//            ChatMessage("Trần Trung Thông", "Phải vậy chứ", fixedTime+500000),
+//            ChatMessage("Alice", "Haha không có gì", fixedTime+600000),
+//            ChatMessage("Alice", "Nhớ dậy sớm", fixedTime+700000),
+//            ChatMessage("Trần Trung Thông", "Ok. Có gì gọi nha, do có thể dậy trễ á", fixedTime+800000),
+//            ChatMessage("Alice", "okok", fixedTime+900000),
+//        )
+//    }
+
     Column(modifier = Modifier.fillMaxSize()) {
-        ChatTopBar()
-        ChatMessages(messages = messages, currentUser = currentUser)
-        ChatBottomBar()
+        ChatTopBar(sender = sender, channelName = currentChannel, isGroupChat = isGroupChat)
+        ChatMessages(messages = viewModel.messages.value ?: emptyList(), currentUser = currentUser)
+        ChatBottomBar(onSendMessage = { message -> viewModel.sendMessage(message, currentUser) })
     }
 }
 
 @OptIn(ExperimentalCoilApi::class)
 @Composable
-fun ChatTopBar() {
+fun ChatTopBar(sender: String, channelName: String, isGroupChat: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -162,7 +208,7 @@ fun ChatTopBar() {
                 Spacer(modifier = Modifier.width(8.dp))
                 Column {
                     Text(
-                        text = "Trần Trung Thông",
+                        text = if (isGroupChat) channelName else sender,
                         style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     )
                     Text(
@@ -182,7 +228,7 @@ fun ChatTopBar() {
 
         IconButton(onClick = { /* Xử lý */ }) {
             Icon(
-                imageVector = Icons.Default.Call,
+                painter = painterResource(id = R.drawable.ic_launcher_videocall),
                 contentDescription = "Video Call",
             )
         }
@@ -192,6 +238,7 @@ fun ChatTopBar() {
 @Composable
 fun ChatMessages(messages: List<ChatMessage>, currentUser: String) {
     var previousSender: String? by remember { mutableStateOf(null) }
+    var previousTimeStamp: Long? by remember { mutableStateOf(null) } // Thời gian tin nhắn trước đó
 
     LazyColumn(
         modifier = Modifier.height(600.dp),
@@ -202,15 +249,45 @@ fun ChatMessages(messages: List<ChatMessage>, currentUser: String) {
             val isCurrentUser = chatMessage.sender == currentUser
             val showAvatar = previousSender != chatMessage.sender
 
+            val showTimeStamp = if (previousTimeStamp != null) {
+                val timeDifference = chatMessage.timestamp - previousTimeStamp!!
+                timeDifference > 15 * 60 * 1000 // Kiểm tra xem có cách nhau quá 15 phút không
+            } else {
+                true // Hiển thị thời gian cho tin nhắn đầu
+            }
+
+            if (showTimeStamp) {
+                val formattedTime = formatTime(chatMessage.timestamp)
+                Text(
+                    text = formattedTime,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+
+            if (!isCurrentUser && showAvatar) {
+                Text(
+                    text = chatMessage.sender,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 56.dp),
+                    textAlign = TextAlign.Left,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+
+            // Hiển thị tin nhắn
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        top = if (showAvatar) 16.dp else 2.dp,
+                        top = if (showAvatar || showTimeStamp) 16.dp else 2.dp,
                     ),
                 horizontalArrangement = if (isCurrentUser) Arrangement.End else Arrangement.Start,
                 verticalAlignment = Alignment.Top
             ) {
+                // Hiển thị avatar nếu cần
                 if (!isCurrentUser && showAvatar) {
                     Box(
                         modifier = Modifier
@@ -222,16 +299,15 @@ fun ChatMessages(messages: List<ChatMessage>, currentUser: String) {
                         // Avatar
                     }
                 }
-                if(!isCurrentUser && !showAvatar)
-                {
+                if (!isCurrentUser && !showAvatar) {
                     Spacer(modifier = Modifier.width(48.dp))
                 }
                 Spacer(modifier = Modifier.width(6.dp))
-                // Hiển thị tin nhắn
                 ChatMessage(chatMessage.message, isCurrentUser = isCurrentUser)
             }
 
             previousSender = chatMessage.sender
+            previousTimeStamp = chatMessage.timestamp
         }
     }
 }
@@ -262,9 +338,31 @@ fun ChatMessage(message: String, isCurrentUser: Boolean) {
     }
 }
 
+// Hàm định dạng thời gian từ timestamp
+fun formatTime(timestamp: Long): String {
+    val time = Calendar.getInstance()
+    time.timeInMillis = timestamp
+    val now = Calendar.getInstance()
+
+    val dateFormat = if (time[Calendar.YEAR] == now[Calendar.YEAR] &&
+        time[Calendar.DAY_OF_YEAR] == now[Calendar.DAY_OF_YEAR]
+    ) {
+        SimpleDateFormat("HH:mm", Locale.getDefault()) // Nếu là hôm nay thì chỉ hiển thị giờ:phút
+    } else {
+        SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) // Nếu không phải hôm nay thì hiển thị ngày/tháng và giờ:phút
+    }
+    return dateFormat.format(time.time)
+}
+
+fun parseTimeStringToTimestamp(timeString: String): Long {
+    val format = SimpleDateFormat("HH:mm", Locale.getDefault())
+    val date = format.parse(timeString)
+    return date?.time ?: 0 // Lấy thời gian từ date, nếu date null thì trả về 0
+}
+
 
 @Composable
-fun ChatBottomBar() {
+fun ChatBottomBar(onSendMessage: (String) -> Unit) {
     var messageText by remember { mutableStateOf("") }
     var isMessageNotEmpty by remember { mutableStateOf(false) } // New state variable
 
@@ -277,7 +375,7 @@ fun ChatBottomBar() {
     ) {
         IconButton(onClick = { /* Xử lý */ }) {
             Icon(
-                imageVector = Icons.Default.Build,
+                painter = painterResource(id = R.drawable.ic_launcher_attachment),
                 contentDescription = "File Upload"
             )
         }
@@ -287,7 +385,7 @@ fun ChatBottomBar() {
             value = messageText,
             onValueChange = {
                 messageText = it
-                isMessageNotEmpty = it.isNotEmpty() // Update the state based on text input
+                isMessageNotEmpty = it.isNotEmpty()
             },
             label = { Text(text = "Nhập tin nhắn") },
             modifier = Modifier
@@ -295,24 +393,27 @@ fun ChatBottomBar() {
                 .padding(horizontal = 6.dp)
         )
 
-        // Display either Send button or other buttons based on text input
         if (isMessageNotEmpty) {
-            IconButton(onClick = { /* Xử lý */ }) {
+            IconButton(onClick = {
+                onSendMessage(messageText)
+                messageText = ""
+                isMessageNotEmpty = false
+            }) {
                 Icon(
                     imageVector = Icons.Default.Send,
-                    contentDescription = "Send Message"
+                    contentDescription = "Send Message",
                 )
             }
         } else {
             IconButton(onClick = { /* Xử lý */ }) {
                 Icon(
-                    imageVector = Icons.Default.Notifications,
+                    painter = painterResource(id = R.drawable.ic_launcher_camera),
                     contentDescription = "Camera"
                 )
             }
             IconButton(onClick = { /* Xử lý */ }) {
                 Icon(
-                    imageVector = Icons.Default.Build,
+                    painter = painterResource(id = R.drawable.ic_launcher_recording),
                     contentDescription = "Voice Recording"
                 )
             }
@@ -320,8 +421,11 @@ fun ChatBottomBar() {
     }
 }
 
+
 @Preview(showBackground = true)
 @Composable
 fun PreviewChatScreen() {
-    ChatScreen()
+    val messages = MessageRepository.getMessages()
+    val viewModel: ChatViewModel = remember { ChatViewModel(messages) }
+    ChatScreen(viewModel = viewModel)
 }
