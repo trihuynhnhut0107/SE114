@@ -1,7 +1,12 @@
 package com.example.se114
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Intent
+import android.database.Cursor
+import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -40,7 +45,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.ZeroCornerSize
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Build
@@ -60,6 +64,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat.startActivityForResult
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -130,6 +135,8 @@ data class ChatMessage(
     val timestamp: Long
 )
 
+private const val FILE_PICKER_REQUEST_CODE = 1
+
 class ChatViewModel(messages: List<ChatMessage>) : ViewModel() {
     private val _messages = MutableLiveData(messages)
     val messages: LiveData<List<ChatMessage>> = _messages
@@ -165,10 +172,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
 //        )
 //    }
 
+    var messages by remember { mutableStateOf(viewModel.messages.value ?: emptyList()) }
+
     Column(modifier = Modifier.fillMaxSize()) {
         ChatTopBar(sender = sender, channelName = currentChannel, isGroupChat = isGroupChat)
-        ChatMessages(messages = viewModel.messages.value ?: emptyList(), currentUser = currentUser)
-        ChatBottomBar(onSendMessage = { message -> viewModel.sendMessage(message, currentUser) })
+        ChatMessages(messages = messages, currentUser = currentUser)
+        ChatBottomBar(onSendMessage = { message ->
+            viewModel.sendMessage(message, currentUser)
+            messages = viewModel.messages.value ?: emptyList()
+        })
     }
 }
 
@@ -221,14 +233,14 @@ fun ChatTopBar(sender: String, channelName: String, isGroupChat: Boolean) {
 
         IconButton(onClick = { /* Xử lý */ }) {
             Icon(
-                imageVector = Icons.Default.Call,
+                painter = painterResource(id = R.drawable.ic_launcher_call),
                 contentDescription = "Call",
             )
         }
 
         IconButton(onClick = { /* Xử lý */ }) {
             Icon(
-                painter = painterResource(id = R.drawable.ic_launcher_videocall),
+                painter = painterResource(id = R.drawable.ic_launcher_videocam),
                 contentDescription = "Video Call",
             )
         }
@@ -271,7 +283,7 @@ fun ChatMessages(messages: List<ChatMessage>, currentUser: String) {
                     text = chatMessage.sender,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 56.dp),
+                        .padding(start = 56.dp, top = 20.dp),
                     textAlign = TextAlign.Left,
                     style = MaterialTheme.typography.bodyLarge
                 )
@@ -373,7 +385,12 @@ fun ChatBottomBar(onSendMessage: (String) -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = { /* Xử lý */ }) {
+        IconButton(onClick = {
+//            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+//            type = "*/*" // Kiểu tệp tin
+//        }
+//            startActivityForResult(1, intent, FILE_PICKER_REQUEST_CODE)
+        }) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_launcher_attachment),
                 contentDescription = "File Upload"
@@ -421,6 +438,33 @@ fun ChatBottomBar(onSendMessage: (String) -> Unit) {
     }
 }
 
+//// Xử lý kết quả trả về từ hộp thoại chọn tập tin
+//private fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+//    onActivityResult(requestCode, resultCode, data)
+//    if (requestCode == FILE_PICKER_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
+//        val selectedFileUri: Uri? = data?.data
+//        selectedFileUri?.let { uri ->
+//            val fileName: String = getFileName(uri)
+//            val message = "Tôi đã gửi một tập tin: $fileName"
+//            onSendMessage(message)
+//        }
+//    }
+//}
+//
+//// Hàm lấy tên tập tin từ Uri
+//private fun getFileName(uri: Uri): String {
+//    val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
+//    cursor?.use {
+//        if (it.moveToFirst()) {
+//            val displayName: String =
+//                it.getString(it.getColumnIndex(OpenableColumns.DISPLAY_NAME))
+//            return displayName
+//        }
+//    }
+//    return ""
+//}
+
+//hashmap
 
 @Preview(showBackground = true)
 @Composable
